@@ -127,37 +127,93 @@ public class HashMapRead {
 			((k = p.key) == key || (key != null && key.equals(k))))
 			
 			//这里为什么要把p赋值给e，而不是直接覆盖原值呢？答案很简单，现在我们只判断了第一个节点，后面还可能出现key相同，所以需要在最后一并处理。
-			e = p;　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　
-            else if (p instanceof TreeNode)                                       //现在开始了第一种情况，p是红黑树节点，那么肯定插入后仍然是红黑树节点，所以我们直接强制转型p后调用TreeNode.putTreeVal方法，返回的引用赋给e。
-				e = ((TreeNode<K,V>)p).putTreeVal(this, tab, hash, key, value);   //你可能好奇，这里怎么不遍历tree看看有没有key相同的节点呢？其实，putTreeVal内部进行了遍历，存在相同hash时返回被覆盖的TreeNode，否则返回null。
-			else {　　　　　　　　　　　　       　　　　　　　　                       //接下里就是p为链表节点的情形，也就是上述说的另外两类情况：插入后还是链表/插入后转红黑树。另外，上行转型代码也说明了TreeNode是Node的一个子类。
-				for (int binCount = 0; ; ++binCount) {　　　　　　　　　　　　　　　　 //我们需要一个计数器来计算当前链表的元素个数，并遍历链表，binCount就是这个计数器。
-					if ((e = p.next) == null) {　　　　　　　　　　　　　　　　　　　　 //遍历过程中当发现p.next为null时，说明链表到头了，直接在p的后面插入新的链表节点，即把新节点的引用赋给p.next，插入操作就完成了。注意此时e赋给p。
-						p.next = newNode(hash, key, value, null);　　　　　　　　　　//最后一个参数为新节点的next，这里传入null，保证了新节点继续为该链表的末端。
-						if (binCount >= TREEIFY_THRESHOLD - 1) // -1 for 1st 　　  //插入成功后，要判断是否需要转换为红黑树，因为插入后链表长度加1，而binCount并不包含新节点，所以判断时要将临界阈值减1。
-							treeifyBin(tab, hash);　　　　　　　　　　　　　　　　     //当新长度满足转换条件时，调用treeifyBin方法，将该链表转换为红黑树。
-						break;　　　　　　　　　　　　　　　　　　　　　　　　　　　　　   //当然如果不满足转换条件，那么插入数据后结构也无需变动，所有插入操作也到此结束了，break退出即可。
+			e = p;　
+			
+			//现在开始了第一种情况，p是红黑树节点，那么肯定插入后仍然是红黑树节点，所以我们直接强制转型p后调用TreeNode.putTreeVal方法，返回的引用赋给e。　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　
+            else if (p instanceof TreeNode)
+            	
+            	//你可能好奇，这里怎么不遍历tree看看有没有key相同的节点呢？其实，putTreeVal内部进行了遍历，存在相同hash时返回被覆盖的TreeNode，否则返回null。
+				e = ((TreeNode<K,V>)p).putTreeVal(this, tab, hash, key, value);
+			
+			//接下里就是p为链表节点的情形，也就是上述说的另外两类情况：插入后还是链表/插入后转红黑树。另外，上行转型代码也说明了TreeNode是Node的一个子类。
+			else {　　　　
+				
+				//我们需要一个计数器来计算当前链表的元素个数，并遍历链表，binCount就是这个计数器。　　　　　　　　       　　　　　　　　
+				for (int binCount = 0; ; ++binCount) {　
+					
+					//遍历过程中当发现p.next为null时，说明链表到头了，直接在p的后面插入新的链表节点，即把新节点的引用赋给p.next，插入操作就完成了。注意此时e赋给p。　　　　　　　　　　　　　　　
+					if ((e = p.next) == null) {　
+					
+						//最后一个参数为新节点的next，这里传入null，保证了新节点继续为该链表的末端。　　　　　　　　　　　　　　　　　　　
+						p.next = newNode(hash, key, value, null);
+						
+						//插入成功后，要判断是否需要转换为红黑树，因为插入后链表长度加1，而binCount并不包含新节点，所以判断时要将临界阈值减1。　　　　　　　　　　
+						if (binCount >= TREEIFY_THRESHOLD - 1) // -1 for 1st 　
+							
+							//当新长度满足转换条件时，调用treeifyBin方法，将该链表转换为红黑树。　
+							treeifyBin(tab, hash);
+						
+						//当然如果不满足转换条件，那么插入数据后结构也无需变动，所有插入操作也到此结束了，break退出即可。　　　　　　　　　　　　　　　　
+						break;　　　　　　　　　　　　　　　　　　　　　　　　　　　　　
 					}
-					if (e.hash == hash &&　　　　　　　　　　　　　　　　　　　　　　　　 //在遍历链表的过程中，我之前提到了，有可能遍历到与插入的key相同的节点，此时只要将这个节点引用赋值给e，最后通过e去把新的value覆盖掉就可以了。
-					((k = e.key) == key || (key != null && key.equals(k))))　　 //老样子判断当前遍历的节点的key是否相同。
-					break;　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　  //找到了相同key的节点，那么插入操作也不需要了，直接break退出循环进行最后的value覆盖操作。
-					p = e;　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　 //在第21行我提到过，e是当前遍历的节点p的下一个节点，p = e 就是依次遍历链表的核心语句。每次循环时p都是下一个node节点。
+					
+					 //在遍历链表的过程中，我之前提到了，有可能遍历到与插入的key相同的节点，此时只要将这个节点引用赋值给e，最后通过e去把新的value覆盖掉就可以了。
+					if (e.hash == hash &&
+					
+					//老样子判断当前遍历的节点的key是否相同。　　　　　　　　　　　　　　　　　　　　　　　　
+					((k = e.key) == key || (key != null && key.equals(k))))
+					
+					//找到了相同key的节点，那么插入操作也不需要了，直接break退出循环进行最后的value覆盖操作。　　
+					break;
+					
+					//在第21行我提到过，e是当前遍历的节点p的下一个节点，p = e 就是依次遍历链表的核心语句。每次循环时p都是下一个node节点。　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　
+					p = e;　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　
 				}
 			}
-			if (e != null) { // existing mapping for key　　　　　　　　　　　　　　　　//左边注释为jdk自带注释，说的很明白了，针对已经存在key的情况做处理。
-				V oldValue = e.value;　　　　　　　　　　　　　　　　　　　　　　　　　　　//定义oldValue，即原存在的节点e的value值。
-				if (!onlyIfAbsent || oldValue == null)　　　　　　　　　　　　　　　　　//前面提到，onlyIfAbsent表示存在key相同时不做覆盖处理，这里作为判断条件，可以看出当onlyIfAbsent为false或者oldValue为null时，进行覆盖操作。
-				e.value = value;　　　　　　　　　　　　　　　　　　　　　　　　      //覆盖操作，将原节点e上的value设置为插入的新value。
-				afterNodeAccess(e);　　　　　　　　　　　　　　　　　　　　　　　　　　　　//这个函数在hashmap中没有任何操作，是个空函数，他存在主要是为了linkedHashMap的一些后续处理工作。
-				return oldValue;　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　//这里很有意思，他返回的是被覆盖的oldValue。我们在使用put方法时很少用他的返回值，甚至忘了它的存在，这里我们知道，他返回的是被覆盖的oldValue。
+			
+			//左边注释为jdk自带注释，说的很明白了，针对已经存在key的情况做处理。
+			if (e != null) { // existing mapping for key　
+				
+				//定义oldValue，即原存在的节点e的value值。　　　　　　　　　　　　　　　
+				V oldValue = e.value;
+				
+				//前面提到，onlyIfAbsent表示存在key相同时不做覆盖处理，这里作为判断条件，可以看出当onlyIfAbsent为false或者oldValue为null时，进行覆盖操作。　　　　　　　　　　　　　　　　　　　　　　　　　　　
+				if (!onlyIfAbsent || oldValue == null)
+				
+				//覆盖操作，将原节点e上的value设置为插入的新value。　　　　　　　　　　　　　　　　　
+				e.value = value;
+				
+				//这个函数在hashmap中没有任何操作，是个空函数，他存在主要是为了linkedHashMap的一些后续处理工作。　　　　　　　　　　　　　　　　　　　　　　　　
+				afterNodeAccess(e);
+				
+				//这里很有意思，他返回的是被覆盖的oldValue。我们在使用put方法时很少用他的返回值，甚至忘了它的存在，这里我们知道，他返回的是被覆盖的oldValue。　　　　　　　　　　　　　　　　　　　　　　　　　　　　
+				return oldValue;　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　
 			}
-		}　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　
-		++modCount;　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　 //收尾工作，值得一提的是，对key相同而覆盖oldValue的情况，在前面已经return，不会执行这里，所以那一类情况不算数据结构变化，并不改变modCount值。
-		if (++size > threshold)　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　 //同理，覆盖oldValue时显然没有新元素添加，除此之外都新增了一个元素，这里++size并与threshold判断是否达到了扩容标准。
-		resize();　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　 //当HashMap中存在的node节点大于threshold时，hashmap进行扩容。
-		afterNodeInsertion(evict);　　　　　　　　　　　　　　　　　　　　　　　　　　　　　//这里与前面的afterNodeAccess同理，是用于linkedHashMap的尾部操作，HashMap中并无实际意义。1
-		return null;　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　   　　　    //最终，对于真正进行插入元素的情况，put函数一律返回null。
+		}　
+		
+		//收尾工作，值得一提的是，对key相同而覆盖oldValue的情况，在前面已经return，不会执行这里，所以那一类情况不算数据结构变化，并不改变modCount值。　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　
+		++modCount;
+		
+		//同理，覆盖oldValue时显然没有新元素添加，除此之外都新增了一个元素，这里++size并与threshold判断是否达到了扩容标准。　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　
+		if (++size > threshold)　
+		
+		//当HashMap中存在的node节点大于threshold时，hashmap进行扩容。　　　　　　　　　　　　　　　　　　　　　　　　　　　　　
+		resize();
+		
+		//这里与前面的afterNodeAccess同理，是用于linkedHashMap的尾部操作，HashMap中并无实际意义。1　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　
+		afterNodeInsertion(evict);　
+		
+		//最终，对于真正进行插入元素的情况，put函数一律返回null。　　　　　　　　　　　　　　　　　　　　　　　　　　　　
+		return null;　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　   　　　
 	}
+	
+	
+	
+	
+	
+	
+	
+	
 	
 	在上述代码中的第十行，HashMap根据 (n - 1) & hash 求出了元素在node数组的下标。这个操作非常精妙，下面我们仔细分析一下计算下标的过程，主要分三个阶段：计算hashcode、高位运算和取模运算。
 
@@ -180,24 +236,38 @@ public class HashMapRead {
 
 	public V get(Object key) {
         Node<K,V> e;
-        return (e = getNode(hash(key), key)) == null ? null : e.value;　　　　　　//根据key及其hash值查询node节点，如果存在，则返回该节点的value值。
+        
+        //根据key及其hash值查询node节点，如果存在，则返回该节点的value值。
+        return (e = getNode(hash(key), key)) == null ? null : e.value;　　　　　
     }
 
-    final Node<K,V> getNode(int hash, Object key) {　　　　　　　　　　　　　　　　  //根据key搜索节点的方法。记住判断key相等的条件：hash值相同 并且 符合equals方法。
+	
+	//根据key搜索节点的方法。记住判断key相等的条件：hash值相同 并且 符合equals方法。
+    final Node<K,V> getNode(int hash, Object key) {　　　　　　　　　　　　　　　　
         Node<K,V>[] tab; Node<K,V> first, e; int n; K k;
-        if ((tab = table) != null && (n = tab.length) > 0 &&　　　　　　　　　　　　//根据输入的hash值，可以直接计算出对应的下标（n - 1）& hash，缩小查询范围，如果存在结果，则必定在table的这个位置上。
-            (first = tab[(n - 1) & hash]) != null) {
+        
+        //根据输入的hash值，可以直接计算出对应的下标（n - 1）& hash，缩小查询范围，如果存在结果，则必定在table的这个位置上。
+        if ((tab = table) != null && (n = tab.length) > 0 && (first = tab[(n - 1) & hash]) != null) {
             if (first.hash == hash && // always check first node
-                ((k = first.key) == key || (key != null && key.equals(k))))　　　 //判断第一个存在的节点的key是否和查询的key相等。如果相等，直接返回该节点。
+            
+            	//判断第一个存在的节点的key是否和查询的key相等。如果相等，直接返回该节点。
+                ((k = first.key) == key || (key != null && key.equals(k))))　　　
                 return first;
-            if ((e = first.next) != null) {　　　　　　　　　　　　　　　　　　　　　　 //遍历该链表/红黑树直到next为null。
-                if (first instanceof TreeNode)　　　　　　　　　　　　　　　　　　     //当这个table节点上存储的是红黑树结构时，在根节点first上调用getTreeNode方法，在内部遍历红黑树节点，查看是否有匹配的TreeNode。
+            
+            //遍历该链表/红黑树直到next为null。
+            if ((e = first.next) != null) {　　　　　　　　　　　　　　　　　　　　　　
+                if (first instanceof TreeNode)　　
+                　　
+                 	//当这个table节点上存储的是红黑树结构时，在根节点first上调用getTreeNode方法，在内部遍历红黑树节点，查看是否有匹配的TreeNode。
                     return ((TreeNode<K,V>)first).getTreeNode(hash, key);
                 do {
-                    if (e.hash == hash &&　　　　　　　　　　　　　　　　　　　　　　　　//当这个table节点上存储的是链表结构时，用跟第11行同样的方式去判断key是否相同。
-                        ((k = e.key) == key || (key != null && key.equals(k))))
+                
+                	//当这个table节点上存储的是链表结构时，用跟第11行同样的方式去判断key是否相同。
+                    if (e.hash == hash && ((k = e.key) == key || (key != null && key.equals(k))))
                         return e;
-                } while ((e = e.next) != null);　　　　　　　　　　　　　　　　　　  　 //如果key不同，一直遍历下去直到链表尽头，e.next == null。
+                        
+                  //如果key不同，一直遍历下去直到链表尽头，e.next == null。
+                } while ((e = e.next) != null);　　　　　　　　　　　　　　　　　　  　
             }
         }
         return null;
@@ -207,6 +277,57 @@ public class HashMapRead {
 	因为查询过程不涉及到HashMap的结构变动，所以get方法的源码显得很简洁。核心逻辑就是遍历table某特定位置上的所有节点，分别与key进行比较看是否相等。
 
 　　以上便是HashMap最常用API的源码分析，除此之外，HashMap还有一些知识需要重点学习：扩容机制、并发安全问题、内部红黑树的实现。这些内容我也会在之后陆续发文分析，希望可以帮读者彻底理解HashMap的原理。.
+
+
+
+
+	
+	 final Node<K,V>[] resize() {
+	 
+	 	//首次初始化后table为Null
+        Node<K,V>[] oldTab = table;
+        int oldCap = (oldTab == null) ? 0 : oldTab.length;
+        
+        //默认构造器的情况下为0
+        int oldThr = threshold;
+        int newCap, newThr = 0;
+        
+        //table扩容过
+        if (oldCap > 0) {
+        
+             //当前table容量大于最大值得时候返回当前table
+             if (oldCap >= MAXIMUM_CAPACITY) {
+                threshold = Integer.MAX_VALUE;
+                return oldTab;
+            }
+            else if ((newCap = oldCap << 1) < MAXIMUM_CAPACITY &&
+                     oldCap >= DEFAULT_INITIAL_CAPACITY)
+            //table的容量乘以2，threshold的值也乘以2           
+            newThr = oldThr << 1; // double threshold
+        }
+        else if (oldThr > 0) // initial capacity was placed in threshold
+        //使用带有初始容量的构造器时，table容量为初始化得到的threshold
+        newCap = oldThr;
+        else {  //默认构造器下进行扩容
+             // zero initial threshold signifies using defaults
+            newCap = DEFAULT_INITIAL_CAPACITY;
+            newThr = (int)(DEFAULT_LOAD_FACTOR * DEFAULT_INITIAL_CAPACITY);
+        }
+        if (newThr == 0) {
+        //使用带有初始容量的构造器在此处进行扩容
+            float ft = (float)newCap * loadFactor;
+            newThr = (newCap < MAXIMUM_CAPACITY && ft < (float)MAXIMUM_CAPACITY ?
+                      (int)ft : Integer.MAX_VALUE);
+        }
+        threshold = newThr;
+        @SuppressWarnings({"rawtypes","unchecked"})
+            Node<K,V>[] newTab = (Node<K,V>[])new Node[newCap];
+        table = newTab;
+      if (oldTab != null) {
+        //对新扩容后的table进行赋值，条件中的代码删减
+        }
+        return newTab;
+	}
 
 
 	*/
